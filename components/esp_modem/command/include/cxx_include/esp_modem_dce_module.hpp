@@ -223,6 +223,12 @@ public:
      */
     virtual command_result get_imei(std::string &imei);
     /**
+     * @brief Reads the ICCID number
+     * @param[out] iccid Module's ICCID number
+     * @return OK, FAIL or TIMEOUT
+     */
+    virtual command_result get_iccid(std::string &iccid);
+    /**
      * @brief Reads the module name
      * @param[out] name module name
      * @return OK, FAIL or TIMEOUT
