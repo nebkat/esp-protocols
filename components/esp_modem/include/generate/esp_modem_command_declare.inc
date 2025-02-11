@@ -132,6 +132,13 @@ ESP_MODEM_DECLARE_DCE_COMMAND(set_cmux, command_result, 0) \
 ESP_MODEM_DECLARE_DCE_COMMAND(get_imsi, command_result, 1, STRING_OUT(p1, imsi)) \
     \
 /**
+ * @brief Reads the ICCID number
+ * @param[out] imei Module's ICCID number
+ * @return OK, FAIL or TIMEOUT
+ */ \
+ESP_MODEM_DECLARE_DCE_COMMAND(get_iccid, command_result, 1, STRING_OUT(p1, iccid)) \
+    \
+/**
  * @brief Reads the IMEI number
  * @param[out] imei Module's IMEI number
  * @return OK, FAIL or TIMEOUT

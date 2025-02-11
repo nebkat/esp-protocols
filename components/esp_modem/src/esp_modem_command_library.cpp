@@ -324,6 +324,12 @@ command_result get_imsi(CommandableIf *t, std::string &imsi_number)
     return generic_get_string(t, "AT+CIMI\r", imsi_number, 5000);
 }
 
+command_result get_iccid(CommandableIf *t, std::string &iccid_number)
+{
+    ESP_LOGV(TAG, "%s", __func__ );
+    return generic_get_string(t, "AT+CCID\r", iccid_number, 5000);
+}
+
 command_result get_imei(CommandableIf *t, std::string &out)
 {
     ESP_LOGV(TAG, "%s", __func__ );
