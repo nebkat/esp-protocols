@@ -181,6 +181,15 @@ public:
         return device->get_imei(imei);
     }
     /**
+     * @brief Reads the ICCID number
+     * @param[out] iccid Module's ICCID number
+     * @return OK, FAIL or TIMEOUT
+     */
+    command_result get_iccid(std::string &iccid)
+    {
+        return device->get_iccid(iccid);
+    }
+    /**
      * @brief Reads the module name
      * @param[out] name module name
      * @return OK, FAIL or TIMEOUT
