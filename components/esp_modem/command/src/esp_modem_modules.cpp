@@ -187,6 +187,15 @@ command_result GenericModule::get_imei(std::string &imei)
     return esp_modem::dce_commands::get_imei(dte.get(), imei);
 }
 /**
+ * @brief Reads the ICCID number
+ * @param[out] iccid Module's ICCID number
+ * @return OK, FAIL or TIMEOUT
+ */
+command_result GenericModule::get_iccid(std::string &iccid)
+{
+    return esp_modem::dce_commands::get_iccid(dte.get(), iccid);
+}
+/**
  * @brief Reads the module name
  * @param[out] name module name
  * @return OK, FAIL or TIMEOUT
