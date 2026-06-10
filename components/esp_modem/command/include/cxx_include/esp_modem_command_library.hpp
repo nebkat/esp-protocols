@@ -339,6 +339,7 @@ command_result config_edrx(CommandableIf *t, int mode, int access_technology, co
  * @brief Following commands that are different for some specific modules
  */
 command_result get_battery_status_sim7xxx(CommandableIf *t, int &voltage, int &bcs, int &bcl);
+command_result get_iccid_sim7xxx(CommandableIf *t, std::string &iccid);
 command_result set_gnss_power_mode_sim76xx(CommandableIf *t, int mode);
 command_result power_down_sim76xx(CommandableIf *t);
 command_result power_down_sim70xx(CommandableIf *t);

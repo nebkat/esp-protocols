@@ -46,6 +46,11 @@ command_result SIM7600::get_battery_status(int &voltage, int &bcs, int &bcl)
     return dce_commands::get_battery_status_sim7xxx(dte.get(), voltage, bcs, bcl);
 }
 
+command_result SIM7600::get_iccid(std::string &iccid)
+{
+    return dce_commands::get_iccid_sim7xxx(dte.get(), iccid);
+}
+
 command_result SIM7600::set_network_bands(const std::string &mode, const int *bands, int size)
 {
     return dce_commands::set_network_bands_sim76xx(dte.get(), mode, bands, size);

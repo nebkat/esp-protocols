@@ -334,6 +334,20 @@ command_result get_iccid(CommandableIf *t, std::string &iccid_number)
     return generic_get_string(t, "AT+CCID\r", iccid_number, 5000);
 }
 
+command_result get_iccid_sim7xxx(CommandableIf *t, std::string &iccid_number)
+{
+    // The SIM7600 DCE class also serves ASR-baseband A76xx modems (A7670/A7672/etc.)
+    // which don't answer AT+CCID and return the ICCID via AT+CICCID instead.
+    // A76xx firmwares pad the BCD-stored ICCID with a trailing 'F' nibble when
+    // the canonical length is odd (19) — drop it so callers get the canonical value.
+    ESP_LOGV(TAG, "%s", __func__);
+    auto ret = generic_get_string(t, "AT+CICCID\r", iccid_number, 5000);
+    if (ret == command_result::OK && iccid_number.size() > 19) {
+        iccid_number.pop_back();
+    }
+    return ret;
+}
+
 command_result get_imei(CommandableIf *t, std::string &out)
 {
     ESP_LOGV(TAG, "%s", __func__);
