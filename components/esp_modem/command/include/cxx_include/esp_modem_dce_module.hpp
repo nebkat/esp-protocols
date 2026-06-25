@@ -323,6 +323,18 @@ public:
      */
     virtual command_result get_radio_state(int &state);
     /**
+     * @brief Select the active SIM slot
+     * @param[in] sim 0-SIM1 1-SIM2
+     * @return OK, FAIL or TIMEOUT
+     */
+    virtual command_result set_active_sim(int sim);
+    /**
+     * @brief Get the active SIM slot
+     * @param[out] sim 0-SIM1 1-SIM2
+     * @return OK, FAIL or TIMEOUT
+     */
+    virtual command_result get_active_sim(int &sim);
+    /**
      * @brief Set network mode
      * @param[in] mode preferred mode
      * @return OK, FAIL or TIMEOUT
@@ -434,6 +446,14 @@ public:
     command_result power_down() override;
     command_result set_gnss_power_mode(int mode) override;
     command_result set_network_bands(const std::string &mode, const int *bands, int size) override;
+};
+/**
+ * @brief Specific definition of the A7600 (SIMCom A76xx) module
+ */
+class A7600: public SIM7600 {
+    using SIM7600::SIM7600;
+public:
+    command_result get_iccid(std::string &iccid) override;
 };
 /**
  * @brief Specific definition of the SIM7070 module

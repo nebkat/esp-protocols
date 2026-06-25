@@ -129,11 +129,11 @@ ESP_MODEM_DECLARE_DCE_COMMAND(get_imsi, command_result, STR_OUT(imsi))
 
 /**
  * @brief Reads the ICCID number
- * @param[out] imei Module's ICCID number
+ * @param[out] iccid Module's ICCID number
  * @return OK, FAIL or TIMEOUT
- */ \
-ESP_MODEM_DECLARE_DCE_COMMAND(get_iccid, command_result, 1, STRING_OUT(p1, iccid)) \
-    \
+ */
+ESP_MODEM_DECLARE_DCE_COMMAND(get_iccid, command_result, STR_OUT(iccid))
+
 /**
  * @brief Reads the IMEI number
  * @param[out] imei Module's IMEI number
@@ -248,6 +248,20 @@ ESP_MODEM_DECLARE_DCE_COMMAND(set_radio_state, command_result, INT_IN(state))
  * @return OK, FAIL or TIMEOUT
  */
 ESP_MODEM_DECLARE_DCE_COMMAND(get_radio_state, command_result, INT_OUT(state))
+
+/**
+ * @brief Select the active SIM slot
+ * @param[in] sim 0-SIM1 1-SIM2
+ * @return OK, FAIL or TIMEOUT
+ */
+ESP_MODEM_DECLARE_DCE_COMMAND(set_active_sim, command_result, INT_IN(sim))
+
+/**
+ * @brief Get the active SIM slot
+ * @param[out] sim 0-SIM1 1-SIM2
+ * @return OK, FAIL or TIMEOUT
+ */
+ESP_MODEM_DECLARE_DCE_COMMAND(get_active_sim, command_result, INT_OUT(sim))
 
 /**
  * @brief Set network mode
