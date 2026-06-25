@@ -345,6 +345,24 @@ public:
         return device->get_radio_state(state);
     }
     /**
+     * @brief Select the active SIM slot
+     * @param[in] sim 0-SIM1 1-SIM2
+     * @return OK, FAIL or TIMEOUT
+     */
+    command_result set_active_sim(int sim)
+    {
+        return device->set_active_sim(sim);
+    }
+    /**
+     * @brief Get the active SIM slot
+     * @param[out] sim 0-SIM1 1-SIM2
+     * @return OK, FAIL or TIMEOUT
+     */
+    command_result get_active_sim(int &sim)
+    {
+        return device->get_active_sim(sim);
+    }
+    /**
      * @brief Set network mode
      * @param[in] mode preferred mode
      * @return OK, FAIL or TIMEOUT

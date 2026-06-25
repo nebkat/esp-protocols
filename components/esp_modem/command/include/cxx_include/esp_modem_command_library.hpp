@@ -252,6 +252,18 @@ command_result set_radio_state(CommandableIf *t, int state);
  */
 command_result get_radio_state(CommandableIf *t, int &state);
 /**
+ * @brief Select the active SIM slot
+ * @param[in] sim 0-SIM1 1-SIM2
+ * @return OK, FAIL or TIMEOUT
+ */
+command_result set_active_sim(CommandableIf *t, int sim);
+/**
+ * @brief Get the active SIM slot
+ * @param[out] sim 0-SIM1 1-SIM2
+ * @return OK, FAIL or TIMEOUT
+ */
+command_result get_active_sim(CommandableIf *t, int &sim);
+/**
  * @brief Set network mode
  * @param[in] mode preferred mode
  * @return OK, FAIL or TIMEOUT
@@ -356,6 +368,7 @@ command_result set_gnss_power_mode_sim76xx(CommandableIf *t, int mode);
 command_result power_down_sim76xx(CommandableIf *t);
 command_result power_down_sim70xx(CommandableIf *t);
 command_result set_network_bands_sim76xx(CommandableIf *t, const std::string &mode, const int *bands, int size);
+command_result get_iccid_a76xx(CommandableIf *t, std::string &iccid);
 command_result power_down_sim8xx(CommandableIf *t);
 command_result set_data_mode_alt(CommandableIf *t);
 command_result set_pdp_context(CommandableIf *t, PdpContext &pdp, uint32_t timeout_ms);
