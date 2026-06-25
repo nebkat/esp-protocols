@@ -331,6 +331,14 @@ command_result GenericModule::get_radio_state(int &state)
 {
     return esp_modem::dce_commands::get_radio_state(dte.get(), state);
 }
+command_result GenericModule::set_active_sim(int sim)
+{
+    return esp_modem::dce_commands::set_active_sim(dte.get(), sim);
+}
+command_result GenericModule::get_active_sim(int &sim)
+{
+    return esp_modem::dce_commands::get_active_sim(dte.get(), sim);
+}
 /**
  * @brief Set network mode
  * @param[in] mode preferred mode
@@ -485,6 +493,10 @@ command_result SIM7600::set_gnss_power_mode(int mode)
 command_result SIM7600::power_down()
 {
     return dce_commands::power_down_sim76xx(dte.get());
+}
+command_result A7600::get_iccid(std::string &iccid)
+{
+    return dce_commands::get_iccid_a76xx(dte.get(), iccid);
 }
 command_result SIM7070::power_down()
 {

@@ -334,6 +334,24 @@ command_result get_iccid(CommandableIf *t, std::string &iccid_number)
     return generic_get_string(t, "AT+CCID\r", iccid_number, 5000);
 }
 
+command_result get_iccid_a76xx(CommandableIf *t, std::string &iccid_number)
+{
+    ESP_LOGV(TAG, "%s", __func__);
+    std::string out;
+    auto ret = generic_get_string(t, "AT+CICCID\r", out, 5000);
+    if (ret != command_result::OK) {
+        return ret;
+    }
+    // +ICCID: <iccid>; keep digits only (drops the trailing 'F' SIM-pad nibble)
+    iccid_number.clear();
+    for (char c : out) {
+        if (c >= '0' && c <= '9') {
+            iccid_number.push_back(c);
+        }
+    }
+    return command_result::OK;
+}
+
 command_result get_imei(CommandableIf *t, std::string &out)
 {
     ESP_LOGV(TAG, "%s", __func__);
@@ -557,6 +575,33 @@ command_result get_radio_state(CommandableIf *t, int &state)
     }
 
     if (std::from_chars(out.data() + pos, out.data() + out.size(), state).ec != std::errc{}) {
+        return command_result::FAIL;
+    }
+
+    return command_result::OK;
+}
+
+command_result set_active_sim(CommandableIf *t, int sim)
+{
+    ESP_LOGV(TAG, "%s", __func__);
+    return generic_command_common(t, "AT+SWITCHSIM=" + std::to_string(sim) + "\r");
+}
+
+command_result get_active_sim(CommandableIf *t, int &sim)
+{
+    ESP_LOGV(TAG, "%s", __func__);
+    std::string out;
+    auto ret = generic_get_string(t, "AT+SWITCHSIM?\r", out);
+    if (ret != command_result::OK) {
+        return ret;
+    }
+    constexpr std::string_view pattern = "+SWITCHSIM: ";
+    constexpr int pos = pattern.size();
+    if (out.find(pattern) == std::string::npos) {
+        return command_result::FAIL;
+    }
+
+    if (std::from_chars(out.data() + pos, out.data() + out.size(), sim).ec != std::errc{}) {
         return command_result::FAIL;
     }
 
