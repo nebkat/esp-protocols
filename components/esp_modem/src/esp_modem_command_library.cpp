@@ -299,7 +299,12 @@ command_result set_pdp_context(CommandableIf *t, PdpContext &pdp)
 command_result set_data_mode(CommandableIf *t)
 {
     ESP_LOGV(TAG, "%s", __func__);
-    return generic_command(t, "ATD*99#\r", "CONNECT", "ERROR", 5000);
+    // Treat NO CARRIER as a failure too — the modem returns it immediately when
+    // the data bearer isn't up yet, so matching it avoids waiting out the full
+    // timeout (the caller decides whether to retry).
+    return generic_command(t, "ATD*99#\r",
+                           std::list<std::string_view> {"CONNECT"},
+                           std::list<std::string_view> {"NO CARRIER", "ERROR"}, 5000);
 }
 
 command_result set_data_mode_alt(CommandableIf *t)
