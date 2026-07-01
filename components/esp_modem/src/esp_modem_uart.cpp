@@ -179,7 +179,7 @@ void UartTerminal::task()
                 reset_events();
                 break;
             case UART_BREAK:
-                ESP_LOGW(TAG, "Rx Break");
+                ESP_LOGI(TAG, "Rx Break");
                 notify_error(terminal_error::UNEXPECTED_CONTROL_FLOW);
                 break;
             case UART_PARITY_ERR:
