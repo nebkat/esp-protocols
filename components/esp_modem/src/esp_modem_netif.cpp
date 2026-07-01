@@ -135,7 +135,7 @@ Netif::~Netif()
 
 void Netif::wait_until_ppp_exits()
 {
-    signal.wait(PPP_EXIT, 30000);
+    signal.wait(PPP_EXIT, 5000);
 }
 
 } // namespace esp_modem
