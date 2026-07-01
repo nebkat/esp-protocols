@@ -227,6 +227,19 @@ bool CMux::on_header(CMuxFrame &frame)
     }
     size_t payload_offset = std::min(frame.len, 4 - frame_header_offset);
     memcpy(frame_header + frame_header_offset, frame.ptr, payload_offset);
+    // A76xx (A7670/A7672G) emits a UIH control frame (header byte 0xEF) that the
+    // generic header parser mishandles, dropping responses on the virtual channel.
+    // Treat it as a DLCI 0 control frame and hand off to the footer state.
+    // (esp-protocols A7670 CMUX patch.)
+    if (frame_header[1] == 0xEF) {
+        dlci = 0;
+        type = frame_header[1];
+        payload_len = 0;
+        data_available(&frame.ptr[0], payload_len); // Notify DISC
+        frame.advance(payload_offset);
+        state = cmux_state::FOOTER;
+        return true;
+    }
 #ifndef ESP_MODEM_CMUX_USE_SHORT_PAYLOADS_ONLY
     if ((frame_header[3] & 1) == 0) {
         if (frame_header_offset + frame.len <= 4) {
