@@ -66,7 +66,11 @@ static bool exit_data(DTE &dte, ModuleIf &device, Netif &netif)
 static bool enter_data(DTE &dte, ModuleIf &device, Netif &netif)
 {
     if (!device.setup_data_mode()) {
-        return false;
+        // No reply to the setup commands: the line may still be in data (PPP) mode
+        // from a previous session. Return it to command mode and retry the setup.
+        if (!device.set_mode(modem_mode::COMMAND_MODE) || !device.setup_data_mode()) {
+            return false;
+        }
     }
     if (!device.set_mode(modem_mode::DATA_MODE)) {
         return false;
