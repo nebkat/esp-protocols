@@ -86,77 +86,83 @@ DTE::~DTE()
 void DTE::set_command_callbacks()
 {
     primary_term->set_read_cb([this](uint8_t *data, size_t len) {
-        Scoped<Lock> l(command_cb.line_lock);
+        // An asynchronous command's callback runs after line_lock is released, so that it can
+        // wait on whatever is cancelling it, or start the next command.
+        bool processed = [&] {
+            Scoped<Lock> l(command_cb.line_lock);
 #ifdef CONFIG_ESP_MODEM_URC_HANDLER
-        // Update buffer state when new data arrives
-        update_buffer_state(len);
+            // Update buffer state when new data arrives
+            update_buffer_state(len);
 #endif
 #ifndef CONFIG_ESP_MODEM_URC_HANDLER
-        if (command_cb.got_line == nullptr || command_cb.result != command_result::TIMEOUT) {
-            return false;   // this line has been processed already (got OK or FAIL previously)
-        }
+            if (command_cb.got_line == nullptr || command_cb.result != command_result::TIMEOUT) {
+                return false;   // this line has been processed already (got OK or FAIL previously)
+            }
 #endif
-        if (data) {
-            // For terminals which post data directly with the callback (CMUX)
-            // we cannot defragment unless we allocate, but
-            // we'll try to process the data on the actual buffer
+            if (data) {
+                // For terminals which post data directly with the callback (CMUX)
+                // we cannot defragment unless we allocate, but
+                // we'll try to process the data on the actual buffer
 #ifdef CONFIG_ESP_MODEM_USE_INFLATABLE_BUFFER_IF_NEEDED
-            if (inflatable.consumed != 0) {
-                inflatable.grow(inflatable.consumed + len);
-                std::memcpy(inflatable.current(), data, len);
-                data = inflatable.begin();
+                if (inflatable.consumed != 0) {
+                    inflatable.grow(inflatable.consumed + len);
+                    std::memcpy(inflatable.current(), data, len);
+                    data = inflatable.begin();
+                }
+                if (command_cb.process_line(data, inflatable.consumed, len, this)) {
+                    return true;
+                }
+                // at this point we're sure that the data processing hasn't finished,
+                // and we have to grow the inflatable buffer (if enabled) or give up
+                if (inflatable.consumed == 0) {
+                    inflatable.grow(len);
+                    std::memcpy(inflatable.begin(), data, len);
+                }
+                inflatable.consumed += len;
+                return false;
+#else
+                if (command_cb.process_line(data, 0, len, this)) {
+                    return true;
+                }
+                // cannot inflate and the processing hasn't finishes in the first iteration, but continue
+                // (will post next fragments to the parser, since we might be just missing a last token or OK
+                return false;
+#endif
             }
-            if (command_cb.process_line(data, inflatable.consumed, len, this)) {
-                return true;
+            // data == nullptr: Terminals which request users to read current data
+            // we're able to use DTE's buffer to defragment it; as long as we consume less that the buffer size
+            if (buffer.size > buffer.consumed) {
+                data = buffer.get();
+                len = primary_term->read(data + buffer.consumed, buffer.size - buffer.consumed);
+                if (command_cb.process_line(data, buffer.consumed, len, this)) {
+                    return true;
+                }
+                buffer.consumed += len;
+                return false;
             }
-            // at this point we're sure that the data processing hasn't finished,
-            // and we have to grow the inflatable buffer (if enabled) or give up
+            // we have used the entire DTE's buffer, need to use the inflatable buffer to continue
+#ifdef CONFIG_ESP_MODEM_USE_INFLATABLE_BUFFER_IF_NEEDED
             if (inflatable.consumed == 0) {
-                inflatable.grow(len);
-                std::memcpy(inflatable.begin(), data, len);
+                inflatable.grow(buffer.size + len);
+                std::memcpy(inflatable.begin(), buffer.get(), buffer.size);
+                inflatable.consumed = buffer.size;
+            } else {
+                inflatable.grow(inflatable.consumed + len);
+            }
+            len = primary_term->read(inflatable.current(), len);
+            if (command_cb.process_line(inflatable.begin(), inflatable.consumed, len, this)) {
+                return true;
             }
             inflatable.consumed += len;
             return false;
 #else
-            if (command_cb.process_line(data, 0, len, this)) {
-                return true;
-            }
-            // cannot inflate and the processing hasn't finishes in the first iteration, but continue
-            // (will post next fragments to the parser, since we might be just missing a last token or OK
-            return false;
-#endif
-        }
-        // data == nullptr: Terminals which request users to read current data
-        // we're able to use DTE's buffer to defragment it; as long as we consume less that the buffer size
-        if (buffer.size > buffer.consumed) {
-            data = buffer.get();
-            len = primary_term->read(data + buffer.consumed, buffer.size - buffer.consumed);
-            if (command_cb.process_line(data, buffer.consumed, len, this)) {
-                return true;
-            }
-            buffer.consumed += len;
-            return false;
-        }
-        // we have used the entire DTE's buffer, need to use the inflatable buffer to continue
-#ifdef CONFIG_ESP_MODEM_USE_INFLATABLE_BUFFER_IF_NEEDED
-        if (inflatable.consumed == 0) {
-            inflatable.grow(buffer.size + len);
-            std::memcpy(inflatable.begin(), buffer.get(), buffer.size);
-            inflatable.consumed = buffer.size;
-        } else {
-            inflatable.grow(inflatable.consumed + len);
-        }
-        len = primary_term->read(inflatable.current(), len);
-        if (command_cb.process_line(inflatable.begin(), inflatable.consumed, len, this)) {
+            // cannot inflate -> report a failure
+            command_cb.give_up(this);
             return true;
-        }
-        inflatable.consumed += len;
-        return false;
-#else
-        // cannot inflate -> report a failure
-        command_cb.give_up();
-        return true;
 #endif
+        }();
+        deliver_completion();
+        return processed;
     });
     primary_term->set_error_cb([this](terminal_error err) {
         if (user_error_cb) {
@@ -185,6 +191,45 @@ command_result DTE::command(const std::string &command, got_line_cb got_line, ui
     primary_term->write((uint8_t *)command.c_str(), command.length());
     command_cb.wait_for_line(time_ms);
     command_cb.set(nullptr);
+    reset_command_buffers();
+    return command_cb.result;
+}
+
+bool DTE::command_async(const std::string &command, got_line_cb got_line, command_done_cb done, const char separator)
+{
+    {
+        Scoped<Lock> l(command_cb.line_lock);
+        if (command_cb.got_line) {
+            return false;
+        }
+#ifdef CONFIG_ESP_MODEM_URC_HANDLER
+        buffer_state.command_waiting = true;
+        buffer_state.command_start_offset = buffer_state.total_processed;
+#endif
+        command_cb.signal.clear(command_cb::GOT_LINE);
+        command_cb.result = command_result::TIMEOUT;
+        command_cb.got_line = std::move(got_line);
+        command_cb.separator = separator;
+        command_cb.done = std::move(done);
+    }
+    primary_term->write((uint8_t *)command.c_str(), command.length());
+    return true;
+}
+
+bool DTE::cancel_command()
+{
+    Scoped<Lock> l(command_cb.line_lock);
+    if (!command_cb.done) {
+        return false;
+    }
+    command_cb.done = nullptr;
+    command_cb.got_line = nullptr;
+    reset_command_buffers();
+    return true;
+}
+
+void DTE::reset_command_buffers()
+{
 #ifdef CONFIG_ESP_MODEM_URC_HANDLER
     // Track command end
     buffer_state.command_waiting = false;
@@ -194,7 +239,34 @@ command_result DTE::command(const std::string &command, got_line_cb got_line, ui
 #ifdef CONFIG_ESP_MODEM_USE_INFLATABLE_BUFFER_IF_NEEDED
     inflatable.deflate();
 #endif
-    return command_cb.result;
+}
+
+void DTE::command_cb::complete(DTE* dte)
+{
+    if (!done) {
+        return;
+    }
+    finished = std::move(done);
+    done = nullptr;
+    got_line = nullptr;
+    if (dte) {
+        dte->reset_command_buffers();
+    }
+}
+
+void DTE::deliver_completion()
+{
+    command_done_cb callback;
+    command_result result;
+    {
+        Scoped<Lock> l(command_cb.line_lock);
+        callback = std::move(command_cb.finished);
+        command_cb.finished = nullptr;
+        result = command_cb.result;
+    }
+    if (callback) {
+        callback(result);
+    }
 }
 
 command_result DTE::command(const std::string &cmd, got_line_cb got_line, uint32_t time_ms)
@@ -458,6 +530,7 @@ bool DTE::command_cb::process_line(uint8_t *data, size_t consumed, size_t len, D
         result = got_line(data, consumed + len);
         if (result == command_result::OK || result == command_result::FAIL) {
             signal.set(GOT_LINE);
+            complete(dte);
             return true;
         }
     }

@@ -71,6 +71,7 @@ enum class sim_pin_state {
 };
 
 typedef std::function<command_result(uint8_t *data, size_t len)> got_line_cb;
+typedef std::function<void(command_result result)> command_done_cb;
 
 /**
  * @brief PDP context used for configuring and setting the data mode up
