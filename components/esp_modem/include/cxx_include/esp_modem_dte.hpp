@@ -175,6 +175,32 @@ public:
     command_result command(const std::string &command, got_line_cb got_line, uint32_t time_ms, char separator) override;
 
     /**
+     * @brief Sends a command without waiting for its answer
+     *
+     * The reply is processed by got_line as with command(), and `done` is called with OK or FAIL once
+     * got_line reports either. Nothing times out: the caller ends a command it has stopped waiting for
+     * with cancel_command(). An asynchronous command must not overlap another command, synchronous
+     * or not.
+     *
+     * @note `done` runs on the terminal's reader, so it must not block.
+     *
+     * @param command String parameter representing command
+     * @param got_line Function to be called after line available as a response
+     * @param done Function to be called with the result
+     * @param separator Command reply separator
+     * @return false if another command is already in flight, in which case `done` is never called
+     */
+    bool command_async(const std::string &command, got_line_cb got_line, command_done_cb done, char separator = '\n');
+
+    /**
+     * @brief Ends an asynchronous command before its answer
+     *
+     * @return true if the command was still in flight and its `done` will not be called, false if
+     * `done` has been or is being called, or no asynchronous command was in flight
+     */
+    bool cancel_command();
+
+    /**
      * @brief Allows this DTE to recover from a generic connection issue
      *
      * @return true if success
@@ -203,6 +229,8 @@ protected:
 private:
 
     void handle_error(terminal_error err);                  /*!< Performs internal error handling */
+    void reset_command_buffers();                           /*!< Releases what a finished command accumulated */
+    void deliver_completion();                              /*!< Calls a finished asynchronous command's callback */
     [[nodiscard]] bool setup_cmux();                        /*!< Internal setup of CMUX mode */
     [[nodiscard]] bool exit_cmux();                         /*!< Exit of CMUX mode and cleanup  */
     void exit_cmux_internal();                              /*!< Cleanup CMUX */
@@ -286,7 +314,10 @@ private:
         Lock line_lock{};                                       /*!< Command callback locking mechanism */
         char separator{};                                       /*!< Command reply separator (end of line/processing unit) */
         command_result result{};                                /*!< Command return code */
+        command_done_cb done;                                   /*!< Completion callback of an asynchronous command */
+        command_done_cb finished;                               /*!< Completion callback of a finished command, called outside line_lock */
         SignalGroup signal;                                     /*!< Event group used to signal request-response operations */
+        void complete(DTE* dte);                                /*!< Finishes an asynchronous command, if one is in flight */
         bool process_line(uint8_t *data, size_t consumed, size_t len, DTE* dte = nullptr);  /*!< Lets the processing callback handle one line (processing unit) */
         bool wait_for_line(uint32_t time_ms)                    /*!< Waiting for command processing */
         {
@@ -308,10 +339,11 @@ private:
             got_line = std::move(l);
             separator = s;
         }
-        void give_up()                                          /*!< Reports other than timeout error when processing replies (out of buffer) */
+        void give_up(DTE* dte)                                  /*!< Reports other than timeout error when processing replies (out of buffer) */
         {
             result = command_result::FAIL;
             signal.set(GOT_LINE);
+            complete(dte);
         }
     } command_cb;                                               /*!< Command callback utility class */
 };
